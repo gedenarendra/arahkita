@@ -1,0 +1,15 @@
+services:
+  arahkita-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arahkita-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - APP_HOST=0.0.0.0
+      - APP_PORT=8000

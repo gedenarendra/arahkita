@@ -1,0 +1,27 @@
+[project]
+name = "arahkita-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "NyomanYogi29", email = "nyomanyogi29@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "openai>=1.50.0",
+    "pydantic>=2.8.0",
+    "uvicorn[standard]>=0.30.0",
+]
+
+[project.scripts]
+arahkita-backend = "arahkita_backend:main"
+
+[build-system]
+requires = ["uv_build>=0.12.17,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.414",
+]
