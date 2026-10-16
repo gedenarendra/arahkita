@@ -51,7 +51,7 @@
 ## 📁 Struktur Direktori
 
 ```plaintext
-arahKita-mvp/
+arahkita-frontend/
 ├── public/                     # Aset statis PWA (ikon, manifest, dsb.)
 ├── src/
 │   ├── assets/                 # Gambar, vektor SVG, dan animasi Lottie
@@ -93,7 +93,7 @@ arahKita-mvp/
 ### 1. Clone Repositori
 ```bash
 git clone https://github.com/USERNAME/NAMA-REPO.git
-cd arahKita-mvp
+cd arahkita-frontend
 ```
 
 ### 2. Instalasi Dependensi
