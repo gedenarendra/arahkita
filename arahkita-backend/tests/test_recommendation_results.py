@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
-from arahkita_backend.adapters.openrouter_adapter import OpenRouterAdapter
+from arahkita_backend.adapters.openrouter import OpenRouterAdapter
 from arahkita_backend.deps import get_openrouter_adapter
 from arahkita_backend.main import app
 from arahkita_backend.schemas.input import (

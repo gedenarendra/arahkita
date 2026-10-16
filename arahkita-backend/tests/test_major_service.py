@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
-from arahkita_backend.adapters.openrouter_adapter import OpenRouterAdapter
+from arahkita_backend.adapters.openrouter import OpenRouterAdapter
 from arahkita_backend.schemas.input import InputKeminatan, SubjectsScore
 from arahkita_backend.services.major_service import get_major_recommendations
 

@@ -99,3 +99,23 @@ class MinicasesGenerationLLMResponse(BaseModel):
         default_factory=list,
         description="Daftar 3 hingga 5 mata kuliah dasar beserta 2 studi kasus per matkul",
     )
+
+
+class CoreSubjectsLLMResponse(BaseModel):
+    subjects: list[str] = Field(
+        ...,
+        min_length=1,
+        max_length=6,
+        description="Daftar nama mata kuliah dasar pengantar",
+    )
+
+
+class SingleSubjectTrialLLMResponse(BaseModel):
+    mcq: MultipleChoiceLLMItem
+    essay: EssayLLMItem
+
+
+class SSEMinicaseMessage(BaseModel):
+    type: Literal["status", "node", "done", "error"]
+    data: dict[str, object] | MinicaseNode
+

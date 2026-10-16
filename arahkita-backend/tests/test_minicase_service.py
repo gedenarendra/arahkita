@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
-from arahkita_backend.adapters.openrouter_adapter import (
+from arahkita_backend.adapters.openrouter import (
     OpenRouterAdapter,
     evaluate_essay_answer,
 )
@@ -86,6 +86,12 @@ class TestMinicaseService(unittest.IsolatedAsyncioTestCase):
             ),
         ]
 
+        self.mock_adapter.fetch_core_subjects = AsyncMock(
+            return_value=["Dasar Pemrograman", "Basis Data", "Jaringan Komputer"]
+        )
+        self.mock_adapter.fetch_single_subject_trials = AsyncMock(
+            side_effect=mock_subjects
+        )
         self.mock_adapter.fetch_minicases_generation = AsyncMock(return_value=mock_subjects)
 
         major_id = "11111111-2222-3333-4444-555555555555"
@@ -122,13 +128,100 @@ class TestMinicaseService(unittest.IsolatedAsyncioTestCase):
                 self.assertIsNotNone(node.evaluation_hint)
 
             if idx < len(nodes) - 1:
-                # Bukan node terakhir: is_parent True dan child_id menunjuk node berikutnya
                 self.assertTrue(node.is_parent)
                 self.assertEqual(node.child_id, nodes[idx + 1].id)
             else:
-                # Node terakhir: is_parent False dan child_id None
                 self.assertFalse(node.is_parent)
                 self.assertIsNone(node.child_id)
+
+    async def test_stream_minicases_tree(self) -> None:
+        import json
+        from arahkita_backend.services.minicase_service import stream_minicases_tree
+
+        mock_subjects = [
+            SubjectTrialLLMItem(
+                subject_name="Dasar Pemrograman",
+                mcq=MultipleChoiceLLMItem(
+                    minicase_title="Logika Algoritma",
+                    question="Apa itu rekursi?",
+                    options=["Fungsi memanggil dirinya", "Loop tak hingga", "Array", "Variabel"],
+                    correct_answer="Fungsi memanggil dirinya",
+                ),
+                essay=EssayLLMItem(
+                    minicase_title="Debugging Kritis",
+                    question="Bagaimana mengatasi bug?",
+                    evaluation_hint="Cek ketenangan.",
+                ),
+            ),
+            SubjectTrialLLMItem(
+                subject_name="Basis Data",
+                mcq=MultipleChoiceLLMItem(
+                    minicase_title="Query SQL",
+                    question="Perintah memilih data?",
+                    options=["SELECT", "UPDATE", "DELETE", "INSERT"],
+                    correct_answer="SELECT",
+                ),
+                essay=EssayLLMItem(
+                    minicase_title="Normalisasi Data",
+                    question="Mengapa redundansi data berbahaya?",
+                    evaluation_hint="Cek anomali.",
+                ),
+            ),
+            SubjectTrialLLMItem(
+                subject_name="Jaringan Komputer",
+                mcq=MultipleChoiceLLMItem(
+                    minicase_title="Protokol IP",
+                    question="Apa fungsi DNS?",
+                    options=["Menerjemahkan domain ke IP", "Mengenkripsi web", "Routing paket", "Firewall"],
+                    correct_answer="Menerjemahkan domain ke IP",
+                ),
+                essay=EssayLLMItem(
+                    minicase_title="Keamanan Jaringan",
+                    question="Bagaimana menyikapi serangan phishing?",
+                    evaluation_hint="Cek mitigasi.",
+                ),
+            ),
+        ]
+
+        self.mock_adapter.fetch_core_subjects = AsyncMock(
+            return_value=["Dasar Pemrograman", "Basis Data", "Jaringan Komputer"]
+        )
+        self.mock_adapter.fetch_single_subject_trials = AsyncMock(
+            side_effect=mock_subjects
+        )
+
+        req = GenerateMinicasesRequest(
+            major_id="11111111-2222-3333-4444-555555555555",
+            major_name="Teknik Informatika",
+            circle_color="#059669",
+        )
+
+        events: list[dict[str, object]] = []
+        async for chunk in stream_minicases_tree(req, self.mock_adapter):
+            self.assertTrue(chunk.startswith("data: "))
+            self.assertTrue(chunk.endswith("\n\n"))
+            raw_json = chunk[len("data: ") : -2]
+            events.append(json.loads(raw_json))
+
+        # Verifikasi event types yang diterima
+        event_types = [e["type"] for e in events]
+        self.assertIn("status", event_types)
+        self.assertIn("node", event_types)
+        self.assertIn("done", event_types)
+        self.assertNotIn("error", event_types)
+
+        # Harus ada tepat 6 node (3 matkul * 2)
+        node_events = [e for e in events if e["type"] == "node"]
+        self.assertEqual(len(node_events), 6)
+
+        # Node pertama harus MCQ
+        first_node_data = node_events[0]["data"]
+        self.assertIsInstance(first_node_data, dict)
+        if isinstance(first_node_data, dict):
+            self.assertEqual(first_node_data.get("minicase_number"), 2)
+            self.assertEqual(first_node_data.get("node_type"), "multiple_choice")
+
+
 
     async def test_evaluate_student_essay_serious(self) -> None:
         expected = EssayEvaluationResult(

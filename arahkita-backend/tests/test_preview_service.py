@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
-from arahkita_backend.adapters.openrouter_adapter import OpenRouterAdapter
+from arahkita_backend.adapters.openrouter import OpenRouterAdapter
 from arahkita_backend.schemas.preview import (
     CareerPathLLMItem,
     GeneratePreviewRequest,

@@ -1,4 +1,4 @@
-from arahkita_backend.adapters.openrouter_adapter import OpenRouterAdapter
+from arahkita_backend.adapters.openrouter import OpenRouterAdapter
 from arahkita_backend.schemas.preview import (
     GeneratePreviewRequest,
     MajorNodeCareerPath,

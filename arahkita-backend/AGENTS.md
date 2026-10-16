@@ -14,12 +14,14 @@ Dokumen ini adalah acuan utama bagi AI Coding Agent dan pengembang manusia dalam
 - **Deliverable Akhir**: **Prototipe Fungsional** (bukan MVP penuh) yang berfokus mendalam pada 2 fitur inti.
 
 ### 1.2. Dua Fitur Utama Prototipe
-1. **Onboarding Survey & Rekomendasi Jurusan (Root Nodes)**:
-   - Saat pengguna pertama kali membuka aplikasi frontend, mereka mengisi survei minat dan nilai mata pelajaran akhir (`Matematika`, `IPA`, `Bahasa_Inggris`) sesuai skema [`InputKeminatan`](src/arahkita_backend/schemas/input.py).
-   - Backend memproses data tersebut menggunakan LLM dan mengembalikan 2–6 pilihan rekomendasi jurusan kuliah dalam bentuk node visual (`MajorNode`) yang siap disimpan di SQLite lokal frontend untuk kapabilitas offline.
+1. **Onboarding Survey & Rekomendasi Rumpun Keilmuan & Jurusan (Knowledge Cluster & Major Nodes)**:
+   - Saat pengguna pertama kali membuka aplikasi frontend, mereka mengisi survei minat dan nilai mata pelajaran secara dinamis (minimal 3, maksimal 10 mapel) sesuai skema [`InputKeminatan`](src/arahkita_backend/schemas/input.py).
+   - Backend memproses data tersebut menggunakan LLM dalam 2 tahap: men-generate 5 jurusan potensial terlebih dahulu, kemudian mengelompokkannya ke dalam 1–5 payung rumpun keilmuan ([`KnowledgeCluster`](src/arahkita_backend/schemas/knowledge_cluster.py)) dengan nama yang komunikatif.
+   - Melalui Server-Sent Events (SSE) `POST /api/v1/clusters/recommend-stream`, backend mengalirkan status progress real-time, objek `KnowledgeCluster` (berisi relasi `major_group`), serta kelima objek [`MajorNode`](src/arahkita_backend/schemas/major_node.py) (berisi Foreign Key `cluster_id`) agar langsung disimpan ke IndexedDB (Dexie.js) lokal frontend untuk kapabilitas offline penuh.
+   - Di dashboard utama, siswa disambut oleh node-node rumpun keilmuan. Ketika siswa memilih salah satu rumpun, frontend membuka visualisasi jurusan di bawah rumpun tersebut dari IndexedDB lokal tanpa memanggil API ulang.
 2. **Eksplorasi Pohon Jurusan & Interactive Trial (Child Nodes & Summary)**:
    - Pengguna memilih salah satu jurusan rekomendasi yang membuat mereka penasaran.
-   - Node pertama (nomor 1) dialokasikan khusus untuk panduan/aturan pengerjaan (*rules*) yang dikelola langsung oleh frontend di state/SQLite lokal.
+   - Node pertama (nomor 1) dialokasikan khusus untuk panduan/aturan pengerjaan (*rules*) yang dikelola langsung oleh frontend di state/IndexedDB lokal.
    - Backend men-generate *child nodes* studi kasus (`MinicaseNode`) dari jurusan tersebut, dengan nomor urut `minicase_number` dimulai dari **2 hingga maksimal 11** (berasal dari 3–5 mata kuliah dasar × 2 studi kasus: 1 Pilihan Ganda + 1 Esai).
    - Pengguna menyelesaikan trial satu demi satu.
    - Setelah trial selesai, backend menyusun dan mengembalikan sebuah **Rangkuman Keminatan Komprehensif** berdasarkan performa dan preferensi siswa selama trial.
@@ -80,21 +82,30 @@ arahkita-backend/
     ├── schemas/
     │   ├── __init__.py
     │   ├── input.py                # Schema input: InputKeminatan, SubjectsScore
+    │   ├── knowledge_cluster.py    # Schema: KnowledgeCluster, SSEClusterMessage, responses
     │   └── major_node.py           # Schema output: MajorNode, LLM response wrappers
     ├── adapters/
     │   ├── __init__.py
-    │   └── openrouter_adapter.py   # Komunikasi OpenAI SDK ke OpenRouter
+    │   └── openrouter/
+    │       ├── __init__.py         # Re-export openrouter module
+    │       ├── adapter.py          # Kelas OpenRouterAdapter
+    │       ├── entry.py            # Fungsi pemanggilan I/O OpenRouter API
+    │       ├── parser.py           # Pemformat user prompt LLM
+    │       └── system_prompt.py    # Konstanta system prompt LLM
     ├── services/
     │   ├── __init__.py
+    │   ├── cluster_service.py      # Logika perakitan cluster graf & ClusterSSEService
     │   └── major_service.py        # Logika perakitan node & rekomendasi jurusan
     ├── utils/
     │   ├── __init__.py
     │   ├── colors.py               # Palet kurasi warna hex ramah mata & selector
-    │   └── ids.py                  # Generator UUID v4
+    │   ├── ids.py                  # Generator UUID v4
+    │   └── parser.py               # Pembersih respon markdown JSON
     └── api/
         ├── __init__.py
         └── v1/
             ├── __init__.py
+            ├── clusters.py         # APIRouter: POST /api/v1/clusters/recommend[-stream]
             └── majors.py           # APIRouter: POST /api/v1/majors/recommend
 ```
 

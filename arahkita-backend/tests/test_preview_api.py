@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
-from arahkita_backend.adapters.openrouter_adapter import OpenRouterAdapter
+from arahkita_backend.adapters.openrouter import OpenRouterAdapter
 from arahkita_backend.api.v1.preview import get_major_node_preview
 from arahkita_backend.deps import get_openrouter_adapter
 from arahkita_backend.main import app

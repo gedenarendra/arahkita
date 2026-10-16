@@ -1,7 +1,7 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends
 
-from arahkita_backend.adapters.openrouter_adapter import OpenRouterAdapter
+from arahkita_backend.adapters.openrouter import OpenRouterAdapter
 from arahkita_backend.deps import get_openrouter_adapter
 from arahkita_backend.schemas.input import InputKeminatan
 from arahkita_backend.schemas.major_node import MajorNode

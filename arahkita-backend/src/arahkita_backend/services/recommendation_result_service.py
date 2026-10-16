@@ -1,6 +1,6 @@
 import logging
 
-from arahkita_backend.adapters.openrouter_adapter import OpenRouterAdapter
+from arahkita_backend.adapters.openrouter import OpenRouterAdapter
 from arahkita_backend.schemas.input import normalize_subject_name
 from arahkita_backend.schemas.preview import MajorNodePreview
 from arahkita_backend.schemas.recommendation_result import (

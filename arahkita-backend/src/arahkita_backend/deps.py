@@ -1,7 +1,7 @@
 from typing import Annotated
 from fastapi import Depends
 
-from arahkita_backend.adapters.openrouter_adapter import OpenRouterAdapter
+from arahkita_backend.adapters.openrouter import OpenRouterAdapter
 from arahkita_backend.config.settings import Settings, get_settings
 
 

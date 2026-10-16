@@ -155,21 +155,68 @@ class TestMinicaseSchemas(unittest.TestCase):
         self.assertEqual(req.major_name, "Teknik Informatika")
         self.assertIsNotNone(req.profile)
 
-    def test_essay_evaluation_scores_boundaries(self) -> None:
-        res = EssayEvaluationResult(
-            analytical_fit=5,
-            interest_signal=1,
-            is_serious_attempt=True,
+    def test_core_subjects_llm_response(self) -> None:
+        from arahkita_backend.schemas.minicase_node import CoreSubjectsLLMResponse
+
+        resp = CoreSubjectsLLMResponse(
+            subjects=["Pemrograman Dasar", "Struktur Data", "Basis Data"]
         )
-        self.assertEqual(res.analytical_fit, 5)
+        self.assertEqual(len(resp.subjects), 3)
 
         with self.assertRaises(ValidationError):
-            EssayEvaluationResult(
-                analytical_fit=6,  # Di luar batas 1–5
-                interest_signal=3,
-                is_serious_attempt=True,
-            )
+            CoreSubjectsLLMResponse(subjects=[])
+
+    def test_single_subject_trial_llm_response(self) -> None:
+        from arahkita_backend.schemas.minicase_node import (
+            EssayLLMItem,
+            MultipleChoiceLLMItem,
+            SingleSubjectTrialLLMResponse,
+        )
+
+        resp = SingleSubjectTrialLLMResponse(
+            mcq=MultipleChoiceLLMItem(
+                minicase_title="Algoritma Dasar",
+                question="Pertanyaan mcq valid?",
+                options=["A", "B", "C", "D"],
+                correct_answer="A",
+            ),
+            essay=EssayLLMItem(
+                minicase_title="Tantangan Logika",
+                question="Pertanyaan esai reflektif valid?",
+                evaluation_hint="Indikator analitis",
+            ),
+        )
+        self.assertEqual(resp.mcq.minicase_title, "Algoritma Dasar")
+        self.assertEqual(resp.essay.minicase_title, "Tantangan Logika")
+
+    def test_sse_minicase_message_envelope(self) -> None:
+        from arahkita_backend.schemas.minicase_node import SSEMinicaseMessage
+
+        status_msg = SSEMinicaseMessage(
+            type="status",
+            data={"message": "Sedang menganalisis...", "progress": 20},
+        )
+        dumped = status_msg.model_dump_json()
+        self.assertIn('"type":"status"', dumped)
+        self.assertIn('"message":"Sedang menganalisis..."', dumped)
+
+        node = MinicaseNode(
+            id="12345678-1234-1234-1234-123456789abc",
+            parent_id="87654321-4321-4321-4321-cba987654321",
+            minicase_number=2,
+            minicase_title="Logika Algoritma",
+            subject_name="Dasar Pemrograman",
+            node_type="multiple_choice",
+            question="Pertanyaan valid?",
+            options=["A", "B", "C", "D"],
+            correct_answer="A",
+            is_parent=False,
+            circle_color="#4F46E5",
+        )
+        node_msg = SSEMinicaseMessage(type="node", data=node)
+        self.assertEqual(node_msg.type, "node")
 
 
 if __name__ == "__main__":
     unittest.main()
+

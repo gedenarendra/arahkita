@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
-from arahkita_backend.adapters.openrouter_adapter import OpenRouterAdapter
+from arahkita_backend.adapters.openrouter import OpenRouterAdapter
 from arahkita_backend.api.v1.minicases import evaluate_essay, generate_minicases
 from arahkita_backend.schemas.essay_eval import (
     EssayEvaluationRequest,
@@ -36,6 +36,8 @@ class TestMinicaseAPI(unittest.IsolatedAsyncioTestCase):
                 ),
             ),
         ]
+        self.mock_adapter.fetch_core_subjects = AsyncMock(return_value=["Pengantar Bisnis"])
+        self.mock_adapter.fetch_single_subject_trials = AsyncMock(side_effect=mock_subjects)
         self.mock_adapter.fetch_minicases_generation = AsyncMock(return_value=mock_subjects)
 
         payload = GenerateMinicasesRequest(
@@ -53,6 +55,83 @@ class TestMinicaseAPI(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response[0].child_id, response[1].id)
         self.assertIsNone(response[1].child_id)
         self.assertFalse(response[1].is_parent)
+
+    async def test_api_generate_minicases_stream(self) -> None:
+        from arahkita_backend.api.v1.minicases import generate_minicases_stream
+
+        mock_subjects = [
+            SubjectTrialLLMItem(
+                subject_name="Pengantar Bisnis",
+                mcq=MultipleChoiceLLMItem(
+                    minicase_title="Model Bisnis",
+                    question="Apa itu model B2B?",
+                    options=["A", "B", "C", "D"],
+                    correct_answer="A",
+                ),
+                essay=EssayLLMItem(
+                    minicase_title="Peluang Pasar",
+                    question="Pertanyaan?",
+                    evaluation_hint="Hint",
+                ),
+            ),
+            SubjectTrialLLMItem(
+                subject_name="Pemasaran Digital",
+                mcq=MultipleChoiceLLMItem(
+                    minicase_title="Pemasaran",
+                    question="Pertanyaan?",
+                    options=["A", "B", "C", "D"],
+                    correct_answer="A",
+                ),
+                essay=EssayLLMItem(
+                    minicase_title="Strategi Promosi",
+                    question="Pertanyaan?",
+                    evaluation_hint="Hint",
+                ),
+            ),
+            SubjectTrialLLMItem(
+                subject_name="Akuntansi Dasar",
+                mcq=MultipleChoiceLLMItem(
+                    minicase_title="Laporan Keuangan",
+                    question="Pertanyaan?",
+                    options=["A", "B", "C", "D"],
+                    correct_answer="A",
+                ),
+                essay=EssayLLMItem(
+                    minicase_title="Neraca Saldo",
+                    question="Pertanyaan?",
+                    evaluation_hint="Hint",
+                ),
+            ),
+        ]
+        self.mock_adapter.fetch_core_subjects = AsyncMock(
+            return_value=["Pengantar Bisnis", "Pemasaran Digital", "Akuntansi Dasar"]
+        )
+        self.mock_adapter.fetch_single_subject_trials = AsyncMock(side_effect=mock_subjects)
+
+        payload = GenerateMinicasesRequest(
+            major_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            major_name="Manajemen Bisnis",
+            circle_color="#D97706",
+        )
+
+        response = await generate_minicases_stream(payload=payload, adapter=self.mock_adapter)
+        self.assertEqual(response.media_type, "text/event-stream")
+        self.assertEqual(response.headers.get("Cache-Control"), "no-cache")
+
+        chunks: list[str] = []
+        async for chunk in response.body_iterator:
+            if isinstance(chunk, bytes):
+                chunks.append(chunk.decode("utf-8"))
+            elif isinstance(chunk, str):
+                chunks.append(chunk)
+            elif isinstance(chunk, memoryview):
+                chunks.append(chunk.tobytes().decode("utf-8"))
+
+        full_body = "".join(chunks)
+        self.assertIn('"type":"status"', full_body)
+        self.assertIn('"type":"node"', full_body)
+        self.assertIn('"type":"done"', full_body)
+
 
     async def test_api_evaluate_essay(self) -> None:
         expected = EssayEvaluationResult(
