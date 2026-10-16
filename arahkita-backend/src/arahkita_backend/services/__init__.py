@@ -12,6 +12,7 @@ from .minicase_service import (
     stream_minicases_tree,
 )
 from .preview_service import (
+    build_fallback_preview,
     calculate_matching_percentage,
     generate_major_preview,
     sanitize_career_detail,
@@ -32,6 +33,7 @@ __all__ = [
     "sanitize_title",
     "calculate_matching_percentage",
     "generate_major_preview",
+    "build_fallback_preview",
     "sanitize_career_title",
     "sanitize_career_detail",
     "sanitize_preview_text",

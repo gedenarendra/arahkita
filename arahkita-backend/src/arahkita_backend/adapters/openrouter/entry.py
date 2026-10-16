@@ -51,6 +51,11 @@ from arahkita_backend.utils.parser import clean_json_response
 
 logger = logging.getLogger(__name__)
 
+OPENROUTER_EXTRA_BODY: dict[str, object] = {
+    "reasoning": {"effort": "none", "exclude": True},
+    "provider": {"sort": "throughput"},
+}
+
 
 async def fetch_major_recommendations(
     profile: InputKeminatan,
@@ -73,7 +78,7 @@ async def fetch_major_recommendations(
         ],
         response_format={"type": "json_object"},
         max_tokens=1000,
-        extra_body={"reasoning": {"exclude": True}, "provider": {"sort": "throughput"}},
+        extra_body=OPENROUTER_EXTRA_BODY,
     )
 
     raw_content = response.choices[0].message.content
@@ -114,7 +119,7 @@ async def fetch_knowledge_clusters(
         ],
         response_format={"type": "json_object"},
         max_tokens=1000,
-        extra_body={"reasoning": {"exclude": True}, "provider": {"sort": "throughput"}},
+        extra_body=OPENROUTER_EXTRA_BODY,
     )
 
     raw_content = response.choices[0].message.content
@@ -162,7 +167,7 @@ async def fetch_minicases_generation(
         ],
         response_format={"type": "json_object"},
         max_tokens=3500,
-        extra_body={"reasoning": {"exclude": True}, "provider": {"sort": "throughput"}},
+        extra_body=OPENROUTER_EXTRA_BODY,
     )
 
     raw_content = response.choices[0].message.content
@@ -209,7 +214,7 @@ async def evaluate_essay_answer(
         ],
         response_format={"type": "json_object"},
         max_tokens=1500,
-        extra_body={"reasoning": {"exclude": True}, "provider": {"sort": "throughput"}},
+        extra_body=OPENROUTER_EXTRA_BODY,
     )
 
     raw_content = response.choices[0].message.content
@@ -245,7 +250,7 @@ async def fetch_preview_generation(
     settings: Settings,
     client: AsyncOpenAI | None = None,
 ) -> PreviewLLMResponse:
-    """Mengirim request ke OpenRouter untuk menghasilkan teks rangkuman evaluasi dan career paths."""
+    """Mengirim request ke OpenRouter untuk menghasilkan teks rangkuman evaluasi dan career paths dengan mekanisme retry."""
     ai_client = client or AsyncOpenAI(
         base_url=settings.openrouter_base_url,
         api_key=settings.openrouter_api_key,
@@ -256,30 +261,40 @@ async def fetch_preview_generation(
         matching_percentage=matching_percentage,
     )
 
-    response = await ai_client.chat.completions.create(
-        model=settings.openrouter_model,
-        messages=[
-            {"role": "system", "content": PREVIEW_SYSTEM_PROMPT},
-            {"role": "user", "content": user_content},
-        ],
-        response_format={"type": "json_object"},
-        max_tokens=1500,
-        extra_body={"reasoning": {"exclude": True}, "provider": {"sort": "throughput"}},
-    )
+    last_error: Exception | None = None
+    for attempt in range(2):
+        try:
+            response = await ai_client.chat.completions.create(
+                model=settings.openrouter_model,
+                messages=[
+                    {"role": "system", "content": PREVIEW_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=2500,
+                extra_body=OPENROUTER_EXTRA_BODY,
+            )
 
-    raw_content = response.choices[0].message.content
-    if not raw_content:
-        raise ValueError("OpenRouter mengembalikan respons kosong saat men-generate preview.")
+            raw_content = response.choices[0].message.content
+            if not raw_content:
+                raise ValueError(
+                    f"OpenRouter mengembalikan respons kosong saat men-generate preview (percobaan {attempt + 1})."
+                )
 
-    cleaned_json = clean_json_response(raw_content)
+            cleaned_json = clean_json_response(raw_content)
+            parsed = PreviewLLMResponse.model_validate_json(cleaned_json)
+            return parsed
+        except Exception as exc:
+            last_error = exc
+            logger.warning(
+                "Gagal men-generate preview dari LLM (percobaan %d/2): %s",
+                attempt + 1,
+                exc,
+            )
 
-    try:
-        parsed = PreviewLLMResponse.model_validate_json(cleaned_json)
-    except Exception as exc:
-        logger.error("Gagal melakukan parsing output LLM preview: %s. Raw: %s", exc, raw_content)
-        raise ValueError(f"Gagal mem-parsing preview dari LLM: {exc}") from exc
-
-    return parsed
+    raise ValueError(
+        f"Gagal mem-parsing preview dari LLM setelah 2 percobaan: {last_error}"
+    ) from last_error
 
 
 async def fetch_subject_relevances(
@@ -310,7 +325,7 @@ async def fetch_subject_relevances(
         ],
         response_format={"type": "json_object"},
         max_tokens=1000,
-        extra_body={"reasoning": {"exclude": True}, "provider": {"sort": "throughput"}},
+        extra_body=OPENROUTER_EXTRA_BODY,
     )
 
     raw_content = response.choices[0].message.content
@@ -362,7 +377,7 @@ async def fetch_core_subjects(
         ],
         response_format={"type": "json_object"},
         max_tokens=500,
-        extra_body={"reasoning": {"exclude": True}, "provider": {"sort": "throughput"}},
+        extra_body=OPENROUTER_EXTRA_BODY,
     )
 
     raw_content = response.choices[0].message.content
@@ -420,7 +435,7 @@ async def fetch_single_subject_trials(
                 ],
                 response_format={"type": "json_object"},
                 max_tokens=1500,
-                extra_body={"reasoning": {"exclude": True}, "provider": {"sort": "throughput"}},
+                extra_body=OPENROUTER_EXTRA_BODY,
             )
 
             raw_content = response.choices[0].message.content
@@ -452,6 +467,7 @@ async def fetch_single_subject_trials(
 
 
 __all__ = [
+    "OPENROUTER_EXTRA_BODY",
     "fetch_major_recommendations",
     "fetch_knowledge_clusters",
     "fetch_minicases_generation",

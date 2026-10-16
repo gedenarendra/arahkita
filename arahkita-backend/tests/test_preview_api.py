@@ -115,6 +115,27 @@ class TestPreviewAPIIntegration(unittest.TestCase):
             "Membangun sistem dan arsitektur aplikasi perangkat lunak.",
         )
 
+    def test_http_post_preview_llm_failure_graceful_fallback(self) -> None:
+        self.mock_adapter.fetch_preview_generation = AsyncMock(
+            side_effect=ValueError("LLM timeout or token exhaustion")
+        )
+
+        valid_major_id = "11111111-2222-4333-8444-555555555555"
+        payload = {
+            "major_name": "Teknik Informatika",
+            "mcq_accuracy": 80.0,
+            "essay_analytical_score": 4.0,
+            "essay_interest_score": 4.0,
+            "total_trials_completed": 6,
+        }
+
+        response = self.client.post(f"/api/v1/preview/{valid_major_id}", json=payload)
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertEqual(data["major_node_id"], valid_major_id)
+        self.assertIn("Teknik Informatika", data["preview"])
+        self.assertGreaterEqual(len(data["career_paths"]), 1)
 
     def test_http_post_preview_invalid_uuid(self) -> None:
         response = self.client.post(

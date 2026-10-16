@@ -199,6 +199,33 @@ class TestPreviewService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.career_paths[0].title, "Matematika Murni")
         self.assertIn("Matematika Murni", result.career_paths[0].detail)
 
+    async def test_generate_major_preview_llm_failure_fallback(self) -> None:
+        major_node_id = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff"
+        self.mock_adapter.fetch_preview_generation = AsyncMock(
+            side_effect=ValueError("OpenRouter error: token exhausted")
+        )
+
+        request = GeneratePreviewRequest(
+            major_name="Teknik Informatika",
+            mcq_accuracy=85.0,
+            essay_analytical_score=4.0,
+            essay_interest_score=4.5,
+            total_trials_completed=6,
+        )
+
+        result = await generate_major_preview(
+            major_node_id=major_node_id,
+            request=request,
+            adapter=self.mock_adapter,
+        )
+
+        # Harus mengembalikan fallback preview yang valid tanpa melempar exception
+        self.assertEqual(result.major_node_id, major_node_id)
+        self.assertGreaterEqual(result.matching_percentage, 1)
+        self.assertIn("Teknik Informatika", result.preview)
+        self.assertGreaterEqual(len(result.career_paths), 1)
+        self.assertEqual(result.career_paths[0].major_node_preview_id, result.id)
+
 
 if __name__ == "__main__":
     unittest.main()
